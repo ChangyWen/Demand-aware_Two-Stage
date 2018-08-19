@@ -16,7 +16,7 @@ def init_instances():
         if riders_df.loc[i, 'tpep_pickup_datetime'] > 1300 or riders_df.loc[i, 'PULocationID'] == riders_df.loc[i, 'DOLocationID']:
             continue
         rider = util.Rider(nums, riders_df.loc[i,'PULocationID'], riders_df.loc[i,'DOLocationID'],\
-                      riders_df.loc[i,'tpep_pickup_datetime'], riders_df.loc[i,'tpep_dropoff_datetime'] + 40)
+                      riders_df.loc[i,'tpep_pickup_datetime'], riders_df.loc[i,'tpep_dropoff_datetime'] + 15)
         rider.flag = 1
         riders.append(rider)
         vehicle = util.Vehicle(nums, rider.from_node, rider.appear_slot, rider.r_id)
@@ -31,7 +31,7 @@ def init_request():
         if riders_df.loc[i, 'tpep_pickup_datetime'] > 1300 or riders_df.loc[i, 'PULocationID'] == riders_df.loc[i, 'DOLocationID']:
             continue
         rider = util.Rider(nums, riders_df.loc[i,'PULocationID'], riders_df.loc[i,'DOLocationID'],\
-                      riders_df.loc[i,'tpep_pickup_datetime'], riders_df.loc[i,'tpep_dropoff_datetime'] + 40)
+                      riders_df.loc[i,'tpep_pickup_datetime'], riders_df.loc[i,'tpep_dropoff_datetime'] + 15)
         riders.append(rider)
         nums += 1
 
