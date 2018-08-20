@@ -45,12 +45,16 @@ def cal_expected_revenue(v, hat_P, slot_list) -> dict:
                     else:
                         temp = w_ij[(i, j, slot)] * (cp.P_i[i][slot] * cp.P_ij[i][j][slot]) / hat_P[(i, slot)]
                     w_i[(i, slot)] += temp
-                    # temp1 = cp.P_i[i][slot] * cp.P_ij[i][j][slot]
-                    # try:
-                    #     temp1 = temp1 / hat_P[(i, slot)]
-                    # except ZeroDivisionError:
-                    #     temp1 = temp1 * 1e99
-                    # finally:
-                    #     temp = temp1 * w_ij[(i, j, slot)]
-                    #     w_i[(i, slot)] += temp
     return w_i
+
+def cal_final_revenue(v) -> int:
+    final_revenue = 0
+    for r in v.picked_up:
+        ea = ii.riders[r].appear_slot + ii.floyd_path(ii.riders[r].from_node, ii.riders[r].to_node)[
+            1] / util.average_speed
+        a = v.drop_off_slot[r]
+        print('delay:')
+        print(a - ea)
+        revenue = rate * ii.floyd_path(ii.riders[r].from_node, ii.riders[r].to_node)[1] - beta * (a - ea)
+        final_revenue += revenue
+    return final_revenue

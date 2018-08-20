@@ -35,43 +35,71 @@ class Vehicle(object):
         self.onboard = [first_rider]
         self.drop_off_slot = {}
 
-    def insert_rider(self, rider: int, index: int = -1):
-        if index == -1:
-            self.picked_up.append(rider)
+    def replan_route(self, type: int):
+        rider = self.picked_up[-1]
+        d = ii.riders[self.picked_up[0]].to_node
+        i = ii.riders[rider].from_node
+        j = ii.riders[rider].to_node
+        self.route = []
+        if type == 1:
+            self.route = ii.floyd_path(i, j)[0]
+            temp = ii.floyd_path(j, d)[0]
+            if len(temp) > 1:
+                temp.pop(0)
+            self.route += temp
         else:
-            self.picked_up.insert(index, rider)
+            self.route = ii.floyd_path(i, d)[0]
+            temp = ii.floyd_path(d, j)[0]
+            if len(temp) > 1:
+                temp.pop(0)
+            self.route += temp
 
-    def insert_pre_pickup(self, loc: int, index: int = -1):
-        if index == -1:
-            self.pre_pickup.append(loc)
-        else:
-            self.pre_pickup.insert(index, loc)
+    def re_replan_route(self,des_list: int):
+        self.route = ii.floyd_path(self.location, des_list[0])[0]
+        for i in range(len(des_list) - 1):
+            route = ii.floyd_path(des_list[i], des_list[i + 1])[0]
+            if len(route) > 1:
+                route.pop(0)
+            self.route += route
+        return
+    # def insert_rider(self, rider: int, index: int = -1):
+    #     if index == -1:
+    #         self.picked_up.append(rider)
+    #     else:
+    #         self.picked_up.insert(index, rider)
 
-    def update_first(self):
-        self.route = [self.location]
-        from_node = ii.riders[self.picked_up[0]].from_node
-        self.route.append(from_node)
-        if len(self.pre_pickup) > 0:
-            from_node = ii.riders[self.picked_up[-1]].from_node
-            to_node = self.pre_pickup[0]
-            self.route += ii.floyd_path(from_node, to_node)[0]
-            from_node = to_node
-        if len(self.pre_pickup) > 1:
-            for i in range(1, len(self.pre_pickup)):
-                from_node = self.pre_pickup[i-1]
-                to_node = self.pre_pickup[i]
-                self.route += ii.floyd_path(from_node, to_node)[0]
-                from_node = to_node
-        to_node = ii.riders[self.picked_up[0]].to_node
-        self.route += ii.floyd_path(from_node, to_node)[0]
-        temp_route = self.route.copy()
-        n = 0
-        nums = len(self.route) - 1
-        for i in range(nums):
-            if temp_route[i] == temp_route[i+1]:
-                self.route.pop(i - n)
-                n += 1
+    # def insert_pre_pickup(self, loc: int, index: int = -1):
+    #     if index == -1:
+    #         self.pre_pickup.append(loc)
+    #     else:
+    #         self.pre_pickup.insert(index, loc)
+
+    # def update_first(self):
+    #     self.route = [self.location]
+    #     from_node = ii.riders[self.picked_up[0]].from_node
+    #     self.route.append(from_node)
+    #     if len(self.pre_pickup) > 0:
+    #         from_node = ii.riders[self.picked_up[-1]].from_node
+    #         to_node = self.pre_pickup[0]
+    #         self.route += ii.floyd_path(from_node, to_node)[0]
+    #         from_node = to_node
+    #     if len(self.pre_pickup) > 1:
+    #         for i in range(1, len(self.pre_pickup)):
+    #             from_node = self.pre_pickup[i-1]
+    #             to_node = self.pre_pickup[i]
+    #             self.route += ii.floyd_path(from_node, to_node)[0]
+    #             from_node = to_node
+    #     to_node = ii.riders[self.picked_up[0]].to_node
+    #     self.route += ii.floyd_path(from_node, to_node)[0]
+    #     temp_route = self.route.copy()
+    #     n = 0
+    #     nums = len(self.route) - 1
+    #     for i in range(nums):
+    #         if temp_route[i] == temp_route[i+1]:
+    #             self.route.pop(i - n)
+    #             n += 1
     #
+
     # def update_pick(self,node1:int, des_order:dict):
     #     self.route = []
     #     if len(self.picked_up) == 3:
@@ -149,6 +177,9 @@ class Floyd_Path(object):
         temp_node = self.from_node
         obj_node = self.to_node
         node_list.append(self.node[temp_node])
+        if temp_node == obj_node:
+            node_list.append(self.node[obj_node])
+            return node_list
         while True:
             node_list.append(self.node[self.path_map[temp_node][obj_node]])
             temp_node = self.path_map[temp_node][obj_node]

@@ -1,77 +1,118 @@
 import init_instances as ii
-import gen_map as gm
+import stage_1 as s1
+import stage_2 as s2
 import util
-import stage_2
-import cal_hat_P as chp
+import gen_map as gm
+import feasible_cheak as fc
 import cal_revenue as cr
-
-def stage_1(v:util.Vehicle):
-    stage_2.stage_two(v)
-    s = ii.riders[v.picked_up[0]].from_node
-    d = ii.riders[v.picked_up[0]].to_node
-    slot_0 = v.slot
-    slot_t = ii.riders[v.picked_up[0]].deadline
-    slot_list = [slot for slot in range(slot_0, slot_t + 1)]
-    hat_P = chp.cal_hat_P(slot_list)
-    w_i = cr.cal_expected_revenue(v, hat_P, slot_list)
-    f = {}
-    for i in gm.nodes:
-        for t in slot_list:
-            f[(i,t)] = -1
-    for t in slot_list:
-        if t >= slot_t:
-            f[(d, t)] = cr.rate * ii.floyd_path(s,d)[1] - cr.beta * (t - slot_0)
-
-    nodes = gm.nodes.copy()
-    nodes.remove(d)
-    slot_list = list(reversed(slot_list))
-    for t in slot_list:
-        for i in nodes:
-            for j in gm.out[i]:
-                if t + gm.delta[(i, j)] <= slot_t:
-                    temp = hat_P[(i, t)] * w_i[(i, t)] + (1 - hat_P[(i, t)]) * (f[(j, t + gm.delta[(i, j)])])
-                    f[(i ,t)] = max(f[(i, t)], temp)
-    v.route = [s]
-    t = slot_0
-    current_node = s
-    # print(slot_0)
-    # print(slot_t)
-    # print(current_node)
-    # print(gm.out[current_node])
-    # print(gm.delta[18, 15])
-    # print(f[current_node, slot_0])
-    # test = []
-    # while True:
-    #     test = []
-    #     for j in gm.out[current_node]:
-    #         if t + gm.delta[(current_node, j)] <= slot_t:
-    #             temp = hat_P[(current_node, t)] * w_i[(current_node, t)] + \
-    #                                     (1 - hat_P[(current_node, t)]) * (f[(j, t + gm.delta[(current_node, j)])])
-    #             if temp in test:
-    #                 print('false')
-    #                 break
-    #             test.append(temp)
-    #             if temp == f[(current_node, t)]:
-    #                 to = j
-    #     t += gm.delta[(current_node, j)]
-    #     current_node = to
-    while True:
-        for j in gm.out[current_node]:
-            if t + gm.delta[(current_node,j)] <= slot_t:
-                temp = hat_P[(current_node, t)] * w_i[(current_node, t)] + \
-                       (1 - hat_P[(current_node, t)]) * (f[(j, t + gm.delta[(current_node, j)])])
-                if temp == f[(current_node, t)]:
-                    v.route.append(j)
-                    print(j)
+def simulate(v:util.Vehicle):
+    t = v.slot
+    v.passed_route = [v.route[0]]
+    v.location = v.route[0]
+    picked = False
+    length1 = len(v.route)
+    for i in range(1, length1 - 1):
+        v.passed_route.append(v.route[i])
+        v.location = v.route[i]
+        t += gm.delta[(v.route[i - 1], v.route[i])]
+        v.slot = t
+        if len(ii.state.s_n[int(t)][v.route[i]]) > 0:
+            for rider in ii.state.s_n[int(t)][v.route[i]]:
+                j = ii.riders[rider].to_node
+                (type, isOk) = s2.feasible_dict[(v.route[i], j, t)]
+                if isOk:
+                    v.load += 1
+                    v.picked_up.append(rider)
+                    v.onboard.append(rider)
+                    v.replan_route(type)
+                    picked = True
                     break
-        t += gm.delta[(current_node,j)]
-        current_node = j
-        if current_node == d:
+        if picked:
             break
-    print(v.route)
-    # print(f[s, slot_0])
+    if i == length1 - 2 and not picked:
+        t += gm.delta[(v.route[i], v.route[i + 1])]
+        v.slot = t
+        v.passed_route.append(v.route[i + 1])
+        v.location = v.route[i + 1]
+        onboard = v.onboard.copy()
+        for rider in onboard:
+            if ii.riders[rider].to_node == v.route[i + 1]:
+                v.onboard.remove(rider)
+                v.drop_off_slot[rider] = t
+                v.load -= 1
+        return cr.cal_final_revenue(v)
+    length2 = len(v.route)
+    picked = False
+    for i in range(1, length2 - 1):
+        v.passed_route.append(v.route[i])
+        v.location = v.route[i]
+        t += gm.delta[(v.route[i - 1], v.route[i])]
+        v.slot = t
+        onboard = v.onboard.copy()
+        for rider in onboard:
+            if ii.riders[rider].to_node == v.route[i]:
+                v.onboard.remove(rider)
+                v.drop_off_slot[rider] = t
+                v.load -= 1
+        if len(ii.state.s_n[int(t)][v.route[i]]) > 0:
+            for rider in ii.state.s_n[int(t)][v.route[i]]:
+                v.onboard.append(rider)
+                (des_list, isOk) = fc.feasible_pick(v, rider)
+                if isOk:
+                    v.load += 1
+                    v.picked_up.append(rider)
+                    v.re_replan_route(des_list)
+                    picked = True
+                    break
+                else:
+                    v.onboard.pop(-1)
+        if picked:
+            break
+    if i == length2 - 2 and not picked:
+        t += gm.delta[(v.route[i], v.route[i + 1])]
+        v.slot = t
+        v.passed_route.append(v.route[i + 1])
+        v.location = v.route[i + 1]
+        onboard = v.onboard.copy()
+        for rider in onboard:
+            if ii.riders[rider].to_node == v.route[i + 1]:
+                v.onboard.remove(rider)
+                v.drop_off_slot[rider] = t
+                v.load -= 1
+        return cr.cal_final_revenue(v)
+    if picked:
+        for i in range(1, len(v.route)):
+            t += gm.delta[(v.route[i - 1], v.route[i])]
+            v.slot = t
+            v.passed_route.append(v.route[i])
+            v.location = v.route[i]
+            onboard = v.onboard.copy()
+            for rider in onboard:
+                if ii.riders[rider].to_node == v.route[i]:
+                    v.onboard.remove(rider)
+                    v.drop_off_slot[rider] = t
+                    v.load -= 1
+    return cr.cal_final_revenue(v)
 
 if __name__ == "__main__":
     ii.init_param()
-    for i in range(3,4):
-        stage_1(ii.vehicles[i])
+    # print(ii.floyd_path(9,9)[0])
+    # print(ii.floyd_path(9,9)[1])
+    for i in range(100):
+        s1.stage_one(ii.vehicles[i])
+        # print('vehicle %(i)d'%{'i':i})
+        print(simulate(ii.vehicles[i]))
+        # print('picked_up:')
+        # d = 0
+        # for rider in ii.vehicles[i].picked_up:
+        #     d += 1
+        #     print('No.%(i)d'%{'i':d})
+        #     print(ii.riders[rider].from_node)
+        #     print(ii.riders[rider].to_node)
+        # for rider in ii.vehicles[i].picked_up:
+        #     print('delay:')
+        #     a = ii.vehicles[i].drop_off_slot[rider]
+        #     ea = ii.riders[rider].appear_slot + \
+        #          ii.floyd_path(ii.riders[rider].from_node, ii.riders[rider].to_node)[1] / util.average_speed
+        #     print(a - ea)
+        print(ii.vehicles[i].passed_route)
